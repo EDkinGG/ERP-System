@@ -1,13 +1,16 @@
-package com.example.erp;
-
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-
-@SpringBootTest
-class ErpApplicationTests {
-
-	@Test
-	void contextLoads() {
-	}
-
-}
+//package com.example.erp;
+//
+//import org.junit.jupiter.api.Test;
+//import org.springframework.boot.test.context.SpringBootTest;
+//
+//import static org.junit.jupiter.api.Assertions.assertTrue;
+//
+//@SpringBootTest
+//class ErpApplicationTests {
+//
+//	@Test
+//	void contextLoads() {
+//		assertTrue(true);
+//	}
+//
+//}

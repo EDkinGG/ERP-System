@@ -39,9 +39,12 @@ public class ErpBatchConfig {
 
         return new JobBuilder("First Job", jobRepository)
                 .start(firstStep())
+                .next(secondStep())
                 .build();
     }
 
+
+    //Steps
 
     private Step firstStep() {
         /*
@@ -56,6 +59,14 @@ public class ErpBatchConfig {
                 .build();
     }
 
+    private Step secondStep() {
+        return new StepBuilder("Second Step", jobRepository)
+                .tasklet(secondTask(), transactionManager)
+                .build();
+    }
+
+    //Task
+
     private Tasklet firstTask() {
         /*
         Tasklet: A functional interface that represents a single unit of work for a step.
@@ -68,6 +79,16 @@ public class ErpBatchConfig {
             @Override
             public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
                 System.out.println("First Step");
+                return RepeatStatus.FINISHED;
+            }
+        };
+    }
+
+    private Tasklet secondTask() {
+        return new Tasklet() {
+            @Override
+            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
+                System.out.println("Second Step");
                 return RepeatStatus.FINISHED;
             }
         };

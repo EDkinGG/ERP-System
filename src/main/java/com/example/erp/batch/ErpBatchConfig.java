@@ -1,5 +1,6 @@
 package com.example.erp.batch;
 
+import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepContribution;
@@ -25,9 +26,13 @@ public class ErpBatchConfig {
     private final PlatformTransactionManager transactionManager;
     //Manages transactions for the batch steps. It’s also injected via the constructor.
 
-    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    @Autowired
+    private final SecondTasklet secondTasklet;
+
+    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
+        this.secondTasklet = secondTasklet;
     }
 
     @Bean
@@ -60,8 +65,9 @@ public class ErpBatchConfig {
     }
 
     private Step secondStep() {
+        //calling tasklet service from here
         return new StepBuilder("Second Step", jobRepository)
-                .tasklet(secondTask(), transactionManager)
+                .tasklet(secondTasklet, transactionManager)
                 .build();
     }
 
@@ -84,13 +90,13 @@ public class ErpBatchConfig {
         };
     }
 
-    private Tasklet secondTask() {
-        return new Tasklet() {
-            @Override
-            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-                System.out.println("Second Step");
-                return RepeatStatus.FINISHED;
-            }
-        };
-    }
+//    private Tasklet secondTask() {
+//        return new Tasklet() {
+//            @Override
+//            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
+//                System.out.println("Second Step");
+//                return RepeatStatus.FINISHED;
+//            }
+//        };
+//    }
 }

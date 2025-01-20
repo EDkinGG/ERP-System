@@ -1,5 +1,8 @@
 package com.example.erp.batch;
 
+import com.example.erp.chunk_oriented_batch.FirstItemProcessor;
+import com.example.erp.chunk_oriented_batch.FirstItemReader;
+import com.example.erp.chunk_oriented_batch.FirstItemWriter;
 import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
 import com.example.erp.service.SecondTasklet;
@@ -37,14 +40,27 @@ public class ErpBatchConfig {
     @Autowired
     private final FirstStepListener firstStepListener;
 
-    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet, FirstJobListener firstJobListener, FirstStepListener firstStepListener) {
+    @Autowired
+    private final FirstItemReader firstItemReader;
+
+    @Autowired
+    private final FirstItemProcessor firstItemProcessor;
+
+    @Autowired
+    private final FirstItemWriter firstItemWriter;
+
+    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet, FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader, FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
         this.firstJobListener = firstJobListener;
         this.firstStepListener = firstStepListener;
+        this.firstItemReader = firstItemReader;
+        this.firstItemProcessor = firstItemProcessor;
+        this.firstItemWriter = firstItemWriter;
     }
 
+    //1st Job
     @Bean
     public Job firstJob() {
         /* JobBuilder: Creates and configures the batch Job.
@@ -114,5 +130,22 @@ public class ErpBatchConfig {
         };
     }
  */
+
+    //2nd Job
+    @Bean
+    public Job secondJob() {
+        return new JobBuilder("Second Job", jobRepository)
+                .start(firstChunkStep())
+                .build();
+    }
+
+    private Step firstChunkStep() {
+        return new StepBuilder("First Chunk Step", jobRepository)
+                .<Integer, Long>chunk(3, transactionManager)
+                .reader(firstItemReader)
+                .processor(firstItemProcessor)
+                .writer(firstItemWriter)
+                .build();
+    }
 
 }

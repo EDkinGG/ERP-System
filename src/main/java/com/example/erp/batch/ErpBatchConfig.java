@@ -1,5 +1,7 @@
 package com.example.erp.batch;
 
+import com.example.erp.listener.FirstJobListener;
+import com.example.erp.listener.FirstStepListener;
 import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -29,10 +31,18 @@ public class ErpBatchConfig {
     @Autowired
     private final SecondTasklet secondTasklet;
 
-    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet) {
+    @Autowired
+    private final FirstJobListener firstJobListener;
+
+    @Autowired
+    private final FirstStepListener firstStepListener;
+
+    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet, FirstJobListener firstJobListener, FirstStepListener firstStepListener) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
+        this.firstJobListener = firstJobListener;
+        this.firstStepListener = firstStepListener;
     }
 
     @Bean
@@ -45,6 +55,7 @@ public class ErpBatchConfig {
         return new JobBuilder("First Job", jobRepository)
                 .start(firstStep())
                 .next(secondStep())
+                .listener(firstJobListener)
                 .build();
     }
 
@@ -61,6 +72,7 @@ public class ErpBatchConfig {
         */
         return new StepBuilder("First Step", jobRepository)
                 .tasklet(firstTask(), transactionManager)
+                .listener(firstStepListener)
                 .build();
     }
 
@@ -84,19 +96,23 @@ public class ErpBatchConfig {
         return new Tasklet() {
             @Override
             public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-                System.out.println("First Step");
+                System.out.println("This is first tasklet Step");
+                System.out.println("Step exec cont = " + chunkContext.getStepContext().getStepExecutionContext());
                 return RepeatStatus.FINISHED;
             }
         };
     }
 
-//    private Tasklet secondTask() {
-//        return new Tasklet() {
-//            @Override
-//            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-//                System.out.println("Second Step");
-//                return RepeatStatus.FINISHED;
-//            }
-//        };
-//    }
+/*
+    private Tasklet secondTask() {
+        return new Tasklet() {
+            @Override
+            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
+                System.out.println("Second Step");
+                return RepeatStatus.FINISHED;
+            }
+        };
+    }
+ */
+
 }

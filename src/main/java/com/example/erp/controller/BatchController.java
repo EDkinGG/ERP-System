@@ -8,6 +8,7 @@ import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,15 +25,17 @@ public class BatchController {
     private final Job demoTaskletJob;
     private final Job demoChunkOrientedJob;
     private final JobService jobService;
+    private final JobOperator jobOperator;
 
     //the @Qualifier annotation is used to resolve ambiguity when multiple beans of the same type exist in the Spring context.
     //It helps Spring identify which specific bean to inject into a particular dependency when multiple options are available.
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
-                           @Qualifier("secondJob") Job demoChunkOrientedJob, JobService jobService) {
+                           @Qualifier("secondJob") Job demoChunkOrientedJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
         this.jobService = jobService;
+        this.jobOperator = jobOperator;
     }
 
     @PostMapping("/tasklet-job")
@@ -76,6 +79,17 @@ public class BatchController {
             jobService.startJob(jobName, params);
             System.out.println("Job started!");
             return ResponseEntity.ok("Job Executed");
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/stop/{jobExecutionId}")
+    public ResponseEntity<String> stopJob(@PathVariable Long jobExecutionId) {
+        try {
+            jobOperator.stop(jobExecutionId);
+            return ResponseEntity.ok("Job Stopped!");
         } catch (Exception e) {
             log.error(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());

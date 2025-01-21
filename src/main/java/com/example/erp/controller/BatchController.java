@@ -1,5 +1,7 @@
 package com.example.erp.controller;
 
+import com.example.erp.dto.BatchParamRequest;
+import com.example.erp.service.JobService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
@@ -9,9 +11,9 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -21,14 +23,16 @@ public class BatchController {
     private final JobLauncher jobLauncher;
     private final Job demoTaskletJob;
     private final Job demoChunkOrientedJob;
+    private final JobService jobService;
 
     //the @Qualifier annotation is used to resolve ambiguity when multiple beans of the same type exist in the Spring context.
     //It helps Spring identify which specific bean to inject into a particular dependency when multiple options are available.
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
-                           @Qualifier("secondJob") Job demoChunkOrientedJob) {
+                           @Qualifier("secondJob") Job demoChunkOrientedJob, JobService jobService) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
+        this.jobService = jobService;
     }
 
     @PostMapping("/tasklet-job")
@@ -60,6 +64,18 @@ public class BatchController {
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(demoChunkOrientedJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/passing-params/{jobName}")
+    public ResponseEntity<String> passingJobParamWithRestApi(@PathVariable String jobName, @RequestBody List<BatchParamRequest> params) {
+        try {
+            jobService.startJob(jobName, params);
+            System.out.println("Job started!");
+            return ResponseEntity.ok("Job Executed");
         } catch (Exception e) {
             log.error(e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());

@@ -24,16 +24,18 @@ public class BatchController {
     private final JobLauncher jobLauncher;
     private final Job demoTaskletJob;
     private final Job demoChunkOrientedJob;
+    private final Job flatFileReadJob;
     private final JobService jobService;
     private final JobOperator jobOperator;
 
     //the @Qualifier annotation is used to resolve ambiguity when multiple beans of the same type exist in the Spring context.
     //It helps Spring identify which specific bean to inject into a particular dependency when multiple options are available.
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
-                           @Qualifier("secondJob") Job demoChunkOrientedJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("secondJob") Job demoChunkOrientedJob, @Qualifier("flatFileJob") Job flatFileReadJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
+        this.flatFileReadJob = flatFileReadJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -95,4 +97,21 @@ public class BatchController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+
+
+    @GetMapping("/read-csv")
+    public ResponseEntity<String> readCsvJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("CSV-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(flatFileReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+
 }

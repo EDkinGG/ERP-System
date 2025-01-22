@@ -3,8 +3,10 @@ package com.example.erp.batch;
 import com.example.erp.chunk_oriented_batch.FirstItemProcessor;
 import com.example.erp.chunk_oriented_batch.FirstItemReader;
 import com.example.erp.chunk_oriented_batch.FirstItemWriter;
+import com.example.erp.chunk_oriented_batch.FlatItemWriter;
 import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
+import com.example.erp.model.EmployeeCsv;
 import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -14,11 +16,18 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
+import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.transaction.PlatformTransactionManager;
+
+import java.io.File;
 
 @Configuration //Marks this class as a Spring configuration class where beans are defined
 public class ErpBatchConfig {
@@ -49,7 +58,12 @@ public class ErpBatchConfig {
     @Autowired
     private final FirstItemWriter firstItemWriter;
 
-    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet, FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader, FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter) {
+    @Autowired
+    private final FlatItemWriter flatItemWriter;
+
+    public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet,
+                          FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader,
+                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
@@ -58,9 +72,11 @@ public class ErpBatchConfig {
         this.firstItemReader = firstItemReader;
         this.firstItemProcessor = firstItemProcessor;
         this.firstItemWriter = firstItemWriter;
+        this.flatItemWriter = flatItemWriter;
     }
 
-    //1st Job
+    //---------------------------------------------1st Job--------------------------------------------------
+    //---------------------------------------------Tasklet----------------------------------------------------
     @Bean
     public Job firstJob() {
         /* JobBuilder: Creates and configures the batch Job.
@@ -75,9 +91,7 @@ public class ErpBatchConfig {
                 .build();
     }
 
-
     //Steps
-
     private Step firstStep() {
         /*
             StepBuilder: Creates and configures a batch Step.
@@ -99,8 +113,7 @@ public class ErpBatchConfig {
                 .build();
     }
 
-    //Task
-
+    //Task of step 1
     private Tasklet firstTask() {
         /*
         Tasklet: A functional interface that represents a single unit of work for a step.
@@ -131,7 +144,8 @@ public class ErpBatchConfig {
     }
  */
 
-    //2nd Job
+    //-------------------------------------------2nd Job--------------------------------------------
+    //---------------------------------------Chunk Oriented-------------------------------------------
     @Bean
     public Job secondJob() {
         return new JobBuilder("Second Job", jobRepository)
@@ -146,6 +160,88 @@ public class ErpBatchConfig {
                 .processor(firstItemProcessor)
                 .writer(firstItemWriter)
                 .build();
+    }
+
+    //------------------------------------------3rd job-----------------------------------------------
+    //------------------------------------Flat File Item Reader--------------------------------------------------
+    @Bean
+    public Job flatFileJob() {
+        return new JobBuilder("Flat File Job", jobRepository)
+                .start(flatFileChunkStep())
+                .build();
+    }
+
+    private Step flatFileChunkStep() {
+        return new StepBuilder("Frist Flat File Chunk Step", jobRepository)
+                .<EmployeeCsv, EmployeeCsv>chunk(3, transactionManager)
+                .reader(flatItemReader())
+                .writer(flatItemWriter)
+                .build();
+    }
+
+    public FlatFileItemReader<EmployeeCsv> flatItemReader() {
+
+        //FlatFileReader: 2 task -> a. setResource
+        //                          b. setLineMapper
+        FlatFileItemReader<EmployeeCsv> reader = new FlatFileItemReader<>();
+
+
+        //Source Location of CSV file
+        reader.setResource(new FileSystemResource(
+                new File("D:\\Rashed\\ERP system\\erp\\ERP-System\\InputFiles\\employee.csv")
+        ));
+
+
+        //Line Mapper(DefaultLineMapper): 2 Task -
+        //              a. Set Line Tokenizer(DelimitedLineTokenizer) -  i. set column headers,
+        //                                                              ii. set delimiter(, for CSV)
+        //              b. Set Bean Mapper(BeanWrapperFieldSetMapper) - i. Map the read data to a POJO class
+        reader.setLineMapper(new DefaultLineMapper<EmployeeCsv>() {
+            {
+                setLineTokenizer(new DelimitedLineTokenizer() {
+                    {
+                        setNames("EmployeeId","Name","SurName","Email");
+                        setDelimiter(",");//"," is set by default, I just showed for reference
+                    }
+                });
+
+                setFieldSetMapper(new BeanWrapperFieldSetMapper<>() {
+                    {
+                        setTargetType(EmployeeCsv.class);
+                    }
+                });
+            }
+        });
+
+        //Skip 1st row as it is the column name
+        reader.setLinesToSkip(1);
+
+        //    FlatFileItemReader<EmployeeCsv> reader = new FlatFileItemReader<>();
+        //
+        //    // Set the file resource with the correct path
+        //    reader.setResource(new FileSystemResource("path/to/your/file.csv"));
+        //
+        //    // Create a DefaultLineMapper
+        //    DefaultLineMapper<EmployeeCsv> lineMapper = new DefaultLineMapper<>();
+        //
+        //    // Create and configure the DelimitedLineTokenizer
+        //    DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
+        //    tokenizer.setNames("EmployeId", "Name", "SurName", "Email");
+        //    tokenizer.setDelimiter(",");
+        //
+        //    // Create and configure the BeanWrapperFieldSetMapper
+        //    BeanWrapperFieldSetMapper<EmployeeCsv> fieldSetMapper = new BeanWrapperFieldSetMapper<>();
+        //    fieldSetMapper.setTargetType(EmployeeCsv.class);
+        //
+        //    // Set the tokenizer and field set mapper on the line mapper
+        //    lineMapper.setLineTokenizer(tokenizer);
+        //    lineMapper.setFieldSetMapper(fieldSetMapper);
+        //
+        //    // Set the line mapper and other configurations on the reader
+        //    reader.setLineMapper(lineMapper);
+        //    reader.setLinesToSkip(1);
+
+        return reader;
     }
 
 }

@@ -1,12 +1,10 @@
 package com.example.erp.batch;
 
-import com.example.erp.chunk_oriented_batch.FirstItemProcessor;
-import com.example.erp.chunk_oriented_batch.FirstItemReader;
-import com.example.erp.chunk_oriented_batch.FirstItemWriter;
-import com.example.erp.chunk_oriented_batch.FlatItemWriter;
+import com.example.erp.chunk_oriented_batch.*;
 import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
 import com.example.erp.model.EmployeeCsv;
+import com.example.erp.model.EmployeeJson;
 import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -20,6 +18,8 @@ import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.batch.item.json.JacksonJsonObjectReader;
+import org.springframework.batch.item.json.JsonItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -61,9 +61,12 @@ public class ErpBatchConfig {
     @Autowired
     private final FlatItemWriter flatItemWriter;
 
+    @Autowired
+    private final JsonItemWriter jsonItemWriter;
+
     public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet,
                           FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader,
-                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter) {
+                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
@@ -73,6 +76,7 @@ public class ErpBatchConfig {
         this.firstItemProcessor = firstItemProcessor;
         this.firstItemWriter = firstItemWriter;
         this.flatItemWriter = flatItemWriter;
+        this.jsonItemWriter = jsonItemWriter;
     }
 
     //---------------------------------------------1st Job--------------------------------------------------
@@ -240,6 +244,49 @@ public class ErpBatchConfig {
         //    // Set the line mapper and other configurations on the reader
         //    reader.setLineMapper(lineMapper);
         //    reader.setLinesToSkip(1);
+
+        return reader;
+    }
+
+    //------------------------------------------4th job-----------------------------------------------
+    //------------------------------------Json File Item Reader--------------------------------------------------
+    @Bean
+    public Job jsonFileJob() {
+        return new JobBuilder("Json File Job", jobRepository)
+                .start(jsonFileChunkStep())
+                .build();
+    }
+
+    private Step jsonFileChunkStep() {
+        return new StepBuilder("First Json File Chunk Step", jobRepository)
+                .<EmployeeJson, EmployeeJson>chunk(3, transactionManager)
+                .reader(jsonItemReader())
+                .writer(jsonItemWriter)
+                .build();
+    }
+
+    public JsonItemReader<EmployeeJson> jsonItemReader() {
+
+        //FlatFileReader: 2 task -> a. setResource
+        //                          b. setJsonObjectReader
+        JsonItemReader<EmployeeJson> reader = new JsonItemReader<>();
+
+
+        //Source Location of CSV file
+        reader.setResource(new FileSystemResource(
+                new File("D:\\Rashed\\ERP system\\erp\\ERP-System\\InputFiles\\employee.json")
+        ));
+
+        //Json object reader
+        reader.setJsonObjectReader(
+                new JacksonJsonObjectReader<>(EmployeeJson.class)
+        );
+
+        //Read up to index 8
+        reader.setMaxItemCount(8);
+
+        //Start reading from index 2
+        reader.setCurrentItemCount(2);
 
         return reader;
     }

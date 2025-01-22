@@ -5,6 +5,7 @@ import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
 import com.example.erp.model.EmployeeCsv;
 import com.example.erp.model.EmployeeJson;
+import com.example.erp.model.EmployeeXml;
 import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -20,11 +21,13 @@ import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.json.JacksonJsonObjectReader;
 import org.springframework.batch.item.json.JsonItemReader;
+import org.springframework.batch.item.xml.StaxEventItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.io.File;
@@ -64,9 +67,12 @@ public class ErpBatchConfig {
     @Autowired
     private final JsonItemWriter jsonItemWriter;
 
+    @Autowired
+    private final XmlItemWriter xmlItemWriter;
+
     public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet,
                           FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader,
-                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter) {
+                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter, XmlItemWriter xmlItemWriter) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
@@ -77,6 +83,7 @@ public class ErpBatchConfig {
         this.firstItemWriter = firstItemWriter;
         this.flatItemWriter = flatItemWriter;
         this.jsonItemWriter = jsonItemWriter;
+        this.xmlItemWriter = xmlItemWriter;
     }
 
     //---------------------------------------------1st Job--------------------------------------------------
@@ -204,7 +211,7 @@ public class ErpBatchConfig {
             {
                 setLineTokenizer(new DelimitedLineTokenizer() {
                     {
-                        setNames("EmployeeId","Name","SurName","Email");
+                        setNames("EmployeeId", "Name", "SurName", "Email");
                         setDelimiter(",");//"," is set by default, I just showed for reference
                     }
                 });
@@ -290,5 +297,51 @@ public class ErpBatchConfig {
 
         return reader;
     }
+
+    //------------------------------------------5th job-----------------------------------------------
+    //------------------------------------Xml File Item Reader--------------------------------------------------
+    @Bean
+    public Job xmlFileJob() {
+        return new JobBuilder("Xml File Job", jobRepository)
+                .start(xmlFileChunkStep())
+                .build();
+    }
+
+    private Step xmlFileChunkStep() {
+        return new StepBuilder("First Xml File Chunk Step", jobRepository)
+                .<EmployeeXml, EmployeeXml>chunk(3, transactionManager)
+                .reader(staxEventItemReader())
+                .writer(xmlItemWriter)
+                .build();
+    }
+
+    public StaxEventItemReader<EmployeeXml> staxEventItemReader() {
+
+        //StaxEventItemReader: 3 task -> a. setResource
+        //                               b. setFragmentRootElementName
+        //                               c. setUnmarshaller->SetClassesToBeBound
+        StaxEventItemReader<EmployeeXml> reader = new StaxEventItemReader<>();
+
+
+        //Source Location of xml file
+        reader.setResource(new FileSystemResource(
+                new File("D:\\Rashed\\ERP system\\erp\\ERP-System\\InputFiles\\employee.xml")
+        ));
+
+        reader.setFragmentRootElementName("employee");
+
+        // Configure and set the JAXB2 Marshaller
+        Jaxb2Marshaller marshaller = new Jaxb2Marshaller();
+        marshaller.setClassesToBeBound(EmployeeXml.class);
+        reader.setUnmarshaller(marshaller);
+
+//        reader.setUnmarshaller(new Jaxb2Marshaller() {
+//            {
+//                setClassesToBeBound(EmployeeXml.class);
+//            }
+//        });
+        return reader;
+    }
+
 
 }

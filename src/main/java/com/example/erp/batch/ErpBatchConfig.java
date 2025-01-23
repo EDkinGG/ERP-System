@@ -15,6 +15,8 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.adapter.ItemReaderAdapter;
+import org.springframework.batch.item.database.ItemPreparedStatementSetter;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.file.FlatFileFooterCallback;
 import org.springframework.batch.item.file.FlatFileHeaderCallback;
@@ -44,6 +46,8 @@ import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Date;
 
 @Configuration //Marks this class as a Spring configuration class where beans are defined
@@ -564,6 +568,51 @@ public class ErpBatchConfig {
 
         return writer;
     }
+
+
+    //------------------------------------------10th job--------------------------------------------------------
+    //-----------------------------------------Xml WRITER-----------------------------------------------------
+
+    @Bean
+    public Job writeJdbcJob() {
+        return new JobBuilder("Write Jdbc file Job", jobRepository)
+                .start(writeJdbcChunkStep())
+                .build();
+    }
+
+    private Step writeJdbcChunkStep() {
+        return new StepBuilder("First Write Jdbc Chunk Step", jobRepository)
+                .<EmployeeJdbc, EmployeeJdbc>chunk(3, transactionManager)
+                .reader(jdbcCursorItemReader())
+                .writer(jdbcBatchItemWriter())
+                .build();
+    }
+
+    @Bean
+    public JdbcBatchItemWriter<EmployeeJdbc> jdbcBatchItemWriter() {
+
+        JdbcBatchItemWriter<EmployeeJdbc> writer = new JdbcBatchItemWriter<>();
+
+        writer.setDataSource(dataSource);
+        writer.setSql(
+                "insert into employee_write(employee_id,name,surname,email)"
+                + " values (?,?,?,?)");
+
+        writer.setItemPreparedStatementSetter(
+                new ItemPreparedStatementSetter<EmployeeJdbc>() {
+
+                    @Override
+                    public void setValues(EmployeeJdbc item, PreparedStatement ps) throws SQLException {
+                      ps.setString(1, item.getEmployeeId());
+                      ps.setString(2, item.getName());
+                      ps.setString(3, item.getSurname());
+                      ps.setString(4, item.getEmail());
+                    }
+                }
+        );
+        return writer;
+    }
+
 
 
 

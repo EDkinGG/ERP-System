@@ -34,6 +34,7 @@ public class BatchController {
     private final Job csvWriteJob;
     private final Job jsonWriteJob;
     private final Job xmlWriteJob;
+    private final Job jdbcWriteJob;
 
     private final JobService jobService;
     private final JobOperator jobOperator;
@@ -45,7 +46,8 @@ public class BatchController {
                            @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob,
                            @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob,
                            @Qualifier("writeFlatFileJob") Job csvWriteJob, @Qualifier("writeJsonJob") Job jsonWriteJob,
-                           @Qualifier("writeXmlJob") Job xmlWriteJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("writeXmlJob") Job xmlWriteJob, @Qualifier("writeJdbcJob") Job jdbcWriteJob,
+                           JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
@@ -57,6 +59,7 @@ public class BatchController {
         this.csvWriteJob = csvWriteJob;
         this.jsonWriteJob = jsonWriteJob;
         this.xmlWriteJob = xmlWriteJob;
+        this.jdbcWriteJob = jdbcWriteJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -225,6 +228,20 @@ public class BatchController {
                     .addString("Xml-ruin.id", String.valueOf(System.currentTimeMillis()))
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(xmlWriteJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/write-jdbc")
+    public ResponseEntity<String> writeJdbcJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("jdbc-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(jdbcWriteJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
         } catch (Exception e) {
             log.error(e.getMessage());

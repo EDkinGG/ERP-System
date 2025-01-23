@@ -33,6 +33,7 @@ public class BatchController {
 
     private final Job csvWriteJob;
     private final Job jsonWriteJob;
+    private final Job xmlWriteJob;
 
     private final JobService jobService;
     private final JobOperator jobOperator;
@@ -43,7 +44,8 @@ public class BatchController {
                            @Qualifier("secondJob") Job demoChunkOrientedJob, @Qualifier("flatFileJob") Job flatFileReadJob,
                            @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob,
                            @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob,
-                           @Qualifier("writeFlatFileJob") Job csvWriteJob, @Qualifier("writeJsonJob") Job jsonWriteJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("writeFlatFileJob") Job csvWriteJob, @Qualifier("writeJsonJob") Job jsonWriteJob,
+                           @Qualifier("writeXmlJob") Job xmlWriteJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
@@ -54,6 +56,7 @@ public class BatchController {
         this.apiReadJob = apiReadJob;
         this.csvWriteJob = csvWriteJob;
         this.jsonWriteJob = jsonWriteJob;
+        this.xmlWriteJob = xmlWriteJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -205,9 +208,23 @@ public class BatchController {
     public ResponseEntity<String> writeJsonJob() {
         try {
             JobParameters jobParameters = new JobParametersBuilder()
-                    .addString("Api-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .addString("Json-ruin.id", String.valueOf(System.currentTimeMillis()))
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(jsonWriteJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/write-xml")
+    public ResponseEntity<String> writeXmlJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Xml-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(xmlWriteJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
         } catch (Exception e) {
             log.error(e.getMessage());

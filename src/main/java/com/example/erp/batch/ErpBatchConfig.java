@@ -30,6 +30,7 @@ import org.springframework.batch.item.json.JacksonJsonObjectReader;
 import org.springframework.batch.item.json.JsonFileItemWriter;
 import org.springframework.batch.item.json.JsonItemReader;
 import org.springframework.batch.item.xml.StaxEventItemReader;
+import org.springframework.batch.item.xml.StaxEventItemWriter;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -409,8 +410,8 @@ public class ErpBatchConfig {
             }
         });
 
-        reader.setCurrentItemCount(2);
-        reader.setMaxItemCount(8);
+        //reader.setCurrentItemCount(2);
+        //reader.setMaxItemCount(8);
 
         return reader;
     }
@@ -524,5 +525,47 @@ public class ErpBatchConfig {
                 );
         return writer;
     }
+
+    //------------------------------------------10th job--------------------------------------------------------
+    //-----------------------------------------Xml WRITER-----------------------------------------------------
+
+    @Bean
+    public Job writeXmlJob() {
+        return new JobBuilder("Write Xml file Job", jobRepository)
+                .start(writeXmlChunkStep())
+                .build();
+    }
+
+    private Step writeXmlChunkStep() {
+        return new StepBuilder("First Write Xml Chunk Step", jobRepository)
+                .<EmployeeJdbc, EmployeeXml>chunk(3, transactionManager)
+                .reader(jdbcCursorItemReader())
+                .writer(writeXmlItemWriter())
+                .build();
+    }
+
+    private StaxEventItemWriter<EmployeeXml> writeXmlItemWriter() {
+
+        // Create the StaxEventItemWriter
+        StaxEventItemWriter<EmployeeXml> writer = new StaxEventItemWriter<>();
+
+        // Set the output file resource
+        writer.setResource(new FileSystemResource(
+                "D:\\Rashed\\ERP system\\erp\\ERP-System\\OutputFiles\\employee.xml"
+        ));
+
+        // Set the root tag name for the XML
+        writer.setRootTagName("employees");
+
+        // Configure the Jaxb2Marshaller
+        Jaxb2Marshaller marshaller = new Jaxb2Marshaller();
+        marshaller.setClassesToBeBound(EmployeeXml.class);
+        writer.setMarshaller(marshaller);
+
+        return writer;
+    }
+
+
+
 
 }

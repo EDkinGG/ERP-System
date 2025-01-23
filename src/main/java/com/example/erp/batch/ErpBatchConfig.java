@@ -25,7 +25,9 @@ import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
 import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.batch.item.json.JacksonJsonObjectMarshaller;
 import org.springframework.batch.item.json.JacksonJsonObjectReader;
+import org.springframework.batch.item.json.JsonFileItemWriter;
 import org.springframework.batch.item.json.JsonItemReader;
 import org.springframework.batch.item.xml.StaxEventItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
@@ -497,6 +499,30 @@ public class ErpBatchConfig {
     }
 
     //------------------------------------------9th job--------------------------------------------------------
-    //-----------------------------------------JSON WRITER-----------------------------------------
+    //-----------------------------------------JSON WRITER-----------------------------------------------------
+
+    @Bean
+    public Job writeJsonJob() {
+        return new JobBuilder("Write Json file Job", jobRepository)
+                .start(writeJsonChunkStep())
+                .build();
+    }
+
+    private Step writeJsonChunkStep() {
+        return new StepBuilder("First Write flat Chunk Step", jobRepository)
+                .<EmployeeJdbc, EmployeeJson>chunk(3, transactionManager)
+                .reader(jdbcCursorItemReader())
+                .writer(jsonFileItemWriter())
+                .build();
+    }
+
+    private JsonFileItemWriter<EmployeeJson> jsonFileItemWriter() {
+        JsonFileItemWriter<EmployeeJson> writer =
+                new JsonFileItemWriter<>(new FileSystemResource
+                        (new File("D:\\Rashed\\ERP system\\erp\\ERP-System\\OutputFiles\\employee.json")),
+                        new JacksonJsonObjectMarshaller<EmployeeJson>()
+                );
+        return writer;
+    }
 
 }

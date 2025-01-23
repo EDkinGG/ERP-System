@@ -31,6 +31,8 @@ public class BatchController {
     private final Job jdbcReadJob;
     private final Job apiReadJob;
 
+    private final Job csvWriteJob;
+
     private final JobService jobService;
     private final JobOperator jobOperator;
 
@@ -39,7 +41,8 @@ public class BatchController {
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
                            @Qualifier("secondJob") Job demoChunkOrientedJob, @Qualifier("flatFileJob") Job flatFileReadJob,
                            @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob,
-                           @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob,
+                           @Qualifier("writeFlatFileJob") Job csvWriteJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
@@ -48,6 +51,7 @@ public class BatchController {
         this.xmlFileReadJob = xmlFileReadJob;
         this.jdbcReadJob = jdbcReadJob;
         this.apiReadJob = apiReadJob;
+        this.csvWriteJob = csvWriteJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -174,6 +178,20 @@ public class BatchController {
                     .addString("Api-ruin.id", String.valueOf(System.currentTimeMillis()))
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(apiReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/write-csv")
+    public ResponseEntity<String> writeCsvJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Api-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(csvWriteJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
         } catch (Exception e) {
             log.error(e.getMessage());

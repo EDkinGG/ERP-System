@@ -16,9 +16,14 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.adapter.ItemReaderAdapter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.file.FlatFileFooterCallback;
+import org.springframework.batch.item.file.FlatFileHeaderCallback;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
+import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.json.JacksonJsonObjectReader;
 import org.springframework.batch.item.json.JsonItemReader;
@@ -34,6 +39,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.io.File;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.Date;
 
 @Configuration //Marks this class as a Spring configuration class where beans are defined
 public class ErpBatchConfig {
@@ -390,7 +398,7 @@ public class ErpBatchConfig {
 
         reader.setDataSource(dataSource);
         reader.setSql(
-                "select employee_id,name,surname,email"
+                "select employee_id as employeeId,name,surname,email"
                 + " from erp_v1.employee_info");
 
         reader.setRowMapper(new BeanPropertyRowMapper<EmployeeJdbc>(){
@@ -431,5 +439,64 @@ public class ErpBatchConfig {
 
         return readerAdapter;
    }
+
+    //------------------------------------------WRITER---------------------------------------------------------
+    //--------------------------SOB GULA JDBC THEKE READ KORE WRITE KORBO--------------------------------------
+    //------------------------------------------8th job--------------------------------------------------------
+    //------------------------------------CSV Writer------------------------------------------------------------
+    @Bean
+    public Job writeFlatFileJob() {
+        return new JobBuilder("Write flat file Job", jobRepository)
+                .start(writeFlatFileChunkStep())
+                .build();
+    }
+
+    private Step writeFlatFileChunkStep() {
+        return new StepBuilder("First Write flat Chunk Step", jobRepository)
+                .<EmployeeJdbc, EmployeeCsv>chunk(3, transactionManager)
+                .reader(jdbcCursorItemReader())
+                .writer(flatfileItemWriter())
+                .build();
+    }
+
+    public FlatFileItemWriter<EmployeeCsv> flatfileItemWriter()
+    {
+        FlatFileItemWriter<EmployeeCsv> flatfileItemWriter =
+                new FlatFileItemWriter<EmployeeCsv>();
+
+        flatfileItemWriter.setResource(new FileSystemResource(
+                new File("D:\\Rashed\\ERP system\\erp\\ERP-System\\OutputFiles\\employee.csv")
+        ));
+
+        flatfileItemWriter.setHeaderCallback(new FlatFileHeaderCallback() {
+            @Override
+            public void writeHeader(Writer writer) throws IOException {
+                writer.write("employeeId,name,surname,email");
+            }
+        });
+
+        flatfileItemWriter.setLineAggregator(new DelimitedLineAggregator<EmployeeCsv>(){
+            {
+                setDelimiter(",");//default -> ,
+                setFieldExtractor( new BeanWrapperFieldExtractor<EmployeeCsv>(){
+                    {
+                        setNames(new String[]{"employeeId","name","surname","email"});
+                    }
+                });
+            }
+        });
+
+        flatfileItemWriter.setFooterCallback( new FlatFileFooterCallback() {
+            @Override
+            public void writeFooter(Writer writer) throws IOException {
+                writer.write("Created @ "+ new Date());
+            }
+        });
+
+        return flatfileItemWriter;
+    }
+
+    //------------------------------------------9th job--------------------------------------------------------
+    //-----------------------------------------JSON WRITER-----------------------------------------
 
 }

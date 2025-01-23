@@ -3,10 +3,8 @@ package com.example.erp.batch;
 import com.example.erp.chunk_oriented_batch.*;
 import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
-import com.example.erp.model.EmployeeCsv;
-import com.example.erp.model.EmployeeJdbc;
-import com.example.erp.model.EmployeeJson;
-import com.example.erp.model.EmployeeXml;
+import com.example.erp.model.*;
+import com.example.erp.service.EmployeeService;
 import com.example.erp.service.SecondTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -16,6 +14,7 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.adapter.ItemReaderAdapter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
@@ -78,11 +77,19 @@ public class ErpBatchConfig {
     private final JdbcItemWriter jdbcItemWriter;
 
     @Autowired
+    private final ApiItemWriter apiItemWriter;
+
+    @Autowired
     private final DataSource dataSource;
+
+    @Autowired
+    private final EmployeeService employeeService;
+
+
 
     public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet,
                           FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader,
-                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter, XmlItemWriter xmlItemWriter, JdbcItemWriter jdbcItemWriter, DataSource dataSource) {
+                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter, XmlItemWriter xmlItemWriter, JdbcItemWriter jdbcItemWriter, ApiItemWriter apiItemWriter, DataSource dataSource, EmployeeService employeeService) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
@@ -95,7 +102,9 @@ public class ErpBatchConfig {
         this.jsonItemWriter = jsonItemWriter;
         this.xmlItemWriter = xmlItemWriter;
         this.jdbcItemWriter = jdbcItemWriter;
+        this.apiItemWriter = apiItemWriter;
         this.dataSource = dataSource;
+        this.employeeService = employeeService;
     }
 
     //---------------------------------------------1st Job--------------------------------------------------
@@ -395,5 +404,32 @@ public class ErpBatchConfig {
 
         return reader;
     }
+
+    //------------------------------------------7th job-----------------------------------------------
+    //------------------------------------Rest Api Item Reader--------------------------------------------------
+    @Bean
+    public Job apiFileJob() {
+        return new JobBuilder("Rest Api Job", jobRepository)
+                .start(apiChunkStep())
+                .build();
+    }
+
+    private Step apiChunkStep() {
+        return new StepBuilder("First Rest Api Chunk Step", jobRepository)
+                .<EmployeeResponse, EmployeeResponse>chunk(3, transactionManager)
+                .reader(itemReaderAdapter())
+                .writer(apiItemWriter)
+                .build();
+    }
+
+   public ItemReaderAdapter<EmployeeResponse> itemReaderAdapter() {
+        ItemReaderAdapter<EmployeeResponse> readerAdapter = new ItemReaderAdapter<EmployeeResponse>();
+
+        readerAdapter.setTargetObject(employeeService);
+        readerAdapter.setTargetMethod("getEmployee");
+        readerAdapter.setArguments(new Object[]{1L, "Test"});
+
+        return readerAdapter;
+   }
 
 }

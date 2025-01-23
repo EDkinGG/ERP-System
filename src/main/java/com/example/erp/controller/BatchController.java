@@ -22,18 +22,32 @@ import java.util.List;
 public class BatchController {
 
     private final JobLauncher jobLauncher;
+
     private final Job demoTaskletJob;
     private final Job demoChunkOrientedJob;
+    private final Job flatFileReadJob;
+    private final Job jsonFileReadJob;
+    private final Job xmlFileReadJob;
+    private final Job jdbcReadJob;
+    private final Job apiReadJob;
+
     private final JobService jobService;
     private final JobOperator jobOperator;
 
     //the @Qualifier annotation is used to resolve ambiguity when multiple beans of the same type exist in the Spring context.
     //It helps Spring identify which specific bean to inject into a particular dependency when multiple options are available.
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
-                           @Qualifier("secondJob") Job demoChunkOrientedJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("secondJob") Job demoChunkOrientedJob, @Qualifier("flatFileJob") Job flatFileReadJob,
+                           @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob,
+                           @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
+        this.flatFileReadJob = flatFileReadJob;
+        this.jsonFileReadJob = jsonFileReadJob;
+        this.xmlFileReadJob = xmlFileReadJob;
+        this.jdbcReadJob = jdbcReadJob;
+        this.apiReadJob = apiReadJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -95,4 +109,77 @@ public class BatchController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+
+
+    @GetMapping("/read-csv")
+    public ResponseEntity<String> readCsvJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("CSV-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(flatFileReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/read-json")
+    public ResponseEntity<String> readJsonJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Json-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(jsonFileReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/read-xml")
+    public ResponseEntity<String> readXmlJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Xml-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(xmlFileReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/read-jdbc")
+    public ResponseEntity<String> readJdbcJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Jdbc-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(jdbcReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/read-api")
+    public ResponseEntity<String> readApiJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Api-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(apiReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+
 }

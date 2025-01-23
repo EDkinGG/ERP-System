@@ -28,6 +28,7 @@ public class BatchController {
     private final Job flatFileReadJob;
     private final Job jsonFileReadJob;
     private final Job xmlFileReadJob;
+    private final Job jdbcReadJob;
 
     private final JobService jobService;
     private final JobOperator jobOperator;
@@ -36,13 +37,15 @@ public class BatchController {
     //It helps Spring identify which specific bean to inject into a particular dependency when multiple options are available.
     public BatchController(JobLauncher jobLauncher, @Qualifier("firstJob") Job demoTaskletJob,
                            @Qualifier("secondJob") Job demoChunkOrientedJob, @Qualifier("flatFileJob") Job flatFileReadJob,
-                           @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob, JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("jsonFileJob") Job jsonFileReadJob, @Qualifier("xmlFileJob") Job xmlFileReadJob,
+                           @Qualifier("jdbcFileJob")Job jdbcReadJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
         this.flatFileReadJob = flatFileReadJob;
         this.jsonFileReadJob = jsonFileReadJob;
         this.xmlFileReadJob = xmlFileReadJob;
+        this.jdbcReadJob = jdbcReadJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -141,6 +144,20 @@ public class BatchController {
                     .addString("Xml-ruin.id", String.valueOf(System.currentTimeMillis()))
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(xmlFileReadJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/read-jdbc")
+    public ResponseEntity<String> readJdbcJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("Jdbc-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(jdbcReadJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
         } catch (Exception e) {
             log.error(e.getMessage());

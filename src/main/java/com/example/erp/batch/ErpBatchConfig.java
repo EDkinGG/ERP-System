@@ -4,6 +4,7 @@ import com.example.erp.chunk_oriented_batch.*;
 import com.example.erp.listener.FirstJobListener;
 import com.example.erp.listener.FirstStepListener;
 import com.example.erp.model.EmployeeCsv;
+import com.example.erp.model.EmployeeJdbc;
 import com.example.erp.model.EmployeeJson;
 import com.example.erp.model.EmployeeXml;
 import com.example.erp.service.SecondTasklet;
@@ -15,6 +16,7 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
@@ -27,9 +29,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import javax.sql.DataSource;
 import java.io.File;
 
 @Configuration //Marks this class as a Spring configuration class where beans are defined
@@ -70,9 +74,15 @@ public class ErpBatchConfig {
     @Autowired
     private final XmlItemWriter xmlItemWriter;
 
+    @Autowired
+    private final JdbcItemWriter jdbcItemWriter;
+
+    @Autowired
+    private final DataSource dataSource;
+
     public ErpBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, SecondTasklet secondTasklet,
                           FirstJobListener firstJobListener, FirstStepListener firstStepListener, FirstItemReader firstItemReader,
-                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter, XmlItemWriter xmlItemWriter) {
+                          FirstItemProcessor firstItemProcessor, FirstItemWriter firstItemWriter, FlatItemWriter flatItemWriter, JsonItemWriter jsonItemWriter, XmlItemWriter xmlItemWriter, JdbcItemWriter jdbcItemWriter, DataSource dataSource) {
         this.jobRepository = jobRepository;
         this.transactionManager = transactionManager;
         this.secondTasklet = secondTasklet;
@@ -84,6 +94,8 @@ public class ErpBatchConfig {
         this.flatItemWriter = flatItemWriter;
         this.jsonItemWriter = jsonItemWriter;
         this.xmlItemWriter = xmlItemWriter;
+        this.jdbcItemWriter = jdbcItemWriter;
+        this.dataSource = dataSource;
     }
 
     //---------------------------------------------1st Job--------------------------------------------------
@@ -331,6 +343,8 @@ public class ErpBatchConfig {
         reader.setFragmentRootElementName("employee");
 
         // Configure and set the JAXB2 Marshaller
+        // Marshaller - Convert Java object to XML
+        // UnMarshaller - Convert XML to Java Object
         Jaxb2Marshaller marshaller = new Jaxb2Marshaller();
         marshaller.setClassesToBeBound(EmployeeXml.class);
         reader.setUnmarshaller(marshaller);
@@ -343,5 +357,43 @@ public class ErpBatchConfig {
         return reader;
     }
 
+
+    //------------------------------------------6th job-----------------------------------------------
+    //------------------------------------Jdbc Item Reader--------------------------------------------------
+    @Bean
+    public Job jdbcFileJob() {
+        return new JobBuilder("Jdbc Job", jobRepository)
+                .start(jdbcChunkStep())
+                .build();
+    }
+
+    private Step jdbcChunkStep() {
+        return new StepBuilder("First Jdbc Chunk Step", jobRepository)
+                .<EmployeeJdbc, EmployeeJdbc>chunk(3, transactionManager)
+                .reader(jdbcCursorItemReader())
+                .writer(jdbcItemWriter)
+                .build();
+    }
+
+    public JdbcCursorItemReader<EmployeeJdbc> jdbcCursorItemReader()
+    {
+        JdbcCursorItemReader<EmployeeJdbc> reader = new JdbcCursorItemReader<>();
+
+        reader.setDataSource(dataSource);
+        reader.setSql(
+                "select employee_id,name,surname,email"
+                + " from erp_v1.employee_info");
+
+        reader.setRowMapper(new BeanPropertyRowMapper<EmployeeJdbc>(){
+            {
+                setMappedClass(EmployeeJdbc.class);
+            }
+        });
+
+        reader.setCurrentItemCount(2);
+        reader.setMaxItemCount(8);
+
+        return reader;
+    }
 
 }

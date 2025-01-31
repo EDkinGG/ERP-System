@@ -35,6 +35,8 @@ public class BatchController {
     private final Job jsonWriteJob;
     private final Job xmlWriteJob;
     private final Job jdbcWriteJob;
+    private final Job parallelWriteJob;
+    private final Job oreillyMultithreadJob;
 
     private final JobService jobService;
     private final JobOperator jobOperator;
@@ -47,7 +49,7 @@ public class BatchController {
                            @Qualifier("jdbcFileJob")Job jdbcReadJob, @Qualifier("apiFileJob") Job apiReadJob,
                            @Qualifier("writeFlatFileJob") Job csvWriteJob, @Qualifier("writeJsonJob") Job jsonWriteJob,
                            @Qualifier("writeXmlJob") Job xmlWriteJob, @Qualifier("writeJdbcJob") Job jdbcWriteJob,
-                           JobService jobService, JobOperator jobOperator) {
+                           @Qualifier("techieJob") Job parallelWriteJob,@Qualifier("oreillyMultithreadJob") Job oreillyMultithreadJob, JobService jobService, JobOperator jobOperator) {
         this.jobLauncher = jobLauncher;
         this.demoTaskletJob = demoTaskletJob;
         this.demoChunkOrientedJob = demoChunkOrientedJob;
@@ -60,6 +62,8 @@ public class BatchController {
         this.jsonWriteJob = jsonWriteJob;
         this.xmlWriteJob = xmlWriteJob;
         this.jdbcWriteJob = jdbcWriteJob;
+        this.parallelWriteJob = parallelWriteJob;
+        this.oreillyMultithreadJob = oreillyMultithreadJob;
         this.jobService = jobService;
         this.jobOperator = jobOperator;
     }
@@ -242,6 +246,34 @@ public class BatchController {
                     .addString("jdbc-ruin.id", String.valueOf(System.currentTimeMillis()))
                     .toJobParameters();
             JobExecution execution = jobLauncher.run(jdbcWriteJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/techie-parallel-job")
+    public ResponseEntity<String> techieParallelJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("techie-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(parallelWriteJob, jobParameters);
+            return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/oreilly-multithreaded-job")
+    public ResponseEntity<String> oreillyMultithreadedJob() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addString("oreilly-multithreaded-ruin.id", String.valueOf(System.currentTimeMillis()))
+                    .toJobParameters();
+            JobExecution execution = jobLauncher.run(oreillyMultithreadJob, jobParameters);
             return ResponseEntity.ok("Job Executed with status " + execution.getStatus());
         } catch (Exception e) {
             log.error(e.getMessage());

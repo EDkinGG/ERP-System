@@ -6,6 +6,9 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.batch.integration.async.AsyncItemWriter;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
@@ -20,6 +23,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 @Configuration
 public class OreillyBatchConfig {
@@ -57,6 +61,47 @@ public class OreillyBatchConfig {
                 .build();
     }
 
+    //AsyncItemProcessor and AsyncItemWriter
+    @Bean
+    public Job oreillyAsyncJob() throws Exception {
+        return new JobBuilder("AsyncItemProcessor and AsyncItemWriter job", jobRepository)
+                .start(stepAsync())
+                .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Bean
+    public Step stepAsync() throws Exception {
+        return new StepBuilder("Async Step", jobRepository)
+                .<Customer, Customer>chunk(1000, transactionManager)
+                .reader(pagingItemReader())
+                .processor(asyncItemProcessor()) // Use asyncItemProcessor here
+                .writer(asyncItemWriter())
+                .build();
+    }
+
+    @Bean
+    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception {
+        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
+
+        asyncItemWriter.setDelegate(customerItemWriter());
+        asyncItemWriter.afterPropertiesSet();
+
+        return asyncItemWriter;
+    }
+
+    @Bean
+    public AsyncItemProcessor asyncItemProcessor() throws Exception {
+
+        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
+
+        asyncItemProcessor.setDelegate(itemProcessor());
+        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        asyncItemProcessor.afterPropertiesSet();
+
+        return asyncItemProcessor;
+    }
+
     @Bean
     public JdbcPagingItemReader<Customer> pagingItemReader() {
         JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
@@ -70,9 +115,9 @@ public class OreillyBatchConfig {
         queryProvider.setSelectClause("customer_id,first_name,last_name,email,gender,contact,country,dob");
         queryProvider.setFromClause("from erp_v1.customers_info");
 
-        Map<String,Order> sortKeys = new HashMap<>(1);
+        Map<String, Order> sortKeys = new HashMap<>(1);
 
-        sortKeys.put("customer_id",Order.ASCENDING);
+        sortKeys.put("customer_id", Order.ASCENDING);
         queryProvider.setSortKeys(sortKeys);
 
         reader.setQueryProvider(queryProvider);
@@ -80,6 +125,28 @@ public class OreillyBatchConfig {
 
         return reader;
     }
+
+    @Bean
+    public ItemProcessor itemProcessor() {
+        return new ItemProcessor<Customer, Customer>() {
+
+            @Override
+            public Customer process(Customer item) throws Exception {
+                Thread.sleep(new Random().nextInt(10));
+                return new Customer(
+                        item.getId(),
+                        item.getFirstName(),
+                        item.getLastName(),
+                        item.getEmail(),
+                        item.getGender(),
+                        item.getContactNo(),
+                        item.getCountry(),
+                        item.getDob()
+                );
+            }
+        };
+    }
+
 
     @Bean
     public JdbcBatchItemWriter<Customer> customerItemWriter() {
@@ -94,6 +161,5 @@ public class OreillyBatchConfig {
 
         return writer;
     }
-
 
 }

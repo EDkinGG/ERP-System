@@ -26,7 +26,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 @Configuration
 @Slf4j
@@ -83,7 +82,7 @@ public class OreillyLocalPartitioningBatchConfig {
     public Step oreillySlaveStep() throws Exception {
         return new StepBuilder("Oreilly Partition Step", jobRepository)
                 .<Customer, Customer>chunk(chunkSize, transactionManager)
-                .reader(partitionPagingItemReader(null,null))
+                .reader(partitionPagingItemReader(null, null))
                 .processor(itemProcessorLocal())
                 .writer(customerItemWriterLocal())
                 .build();
@@ -93,8 +92,7 @@ public class OreillyLocalPartitioningBatchConfig {
     @StepScope
     public JdbcPagingItemReader<Customer> partitionPagingItemReader(
             @Value("#{stepExecutionContext['minValue']}") Long minValue,
-            @Value("#{stepExecutionContext['maxValue']}") Long maxValue)
-    {
+            @Value("#{stepExecutionContext['maxValue']}") Long maxValue) {
         System.out.println("reading " + minValue + " to " + maxValue);
 
 

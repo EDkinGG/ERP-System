@@ -3,6 +3,7 @@ package com.example.erp.batch;
 import com.example.erp.entity.Customer;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -35,6 +36,7 @@ public class OreillyBatchConfig {
 
     @Autowired
     private final DataSource dataSource;
+
 
     public OreillyBatchConfig(JobRepository jobRepository, PlatformTransactionManager transactionManager, DataSource dataSource) {
         this.jobRepository = jobRepository;
@@ -81,28 +83,6 @@ public class OreillyBatchConfig {
     }
 
     @Bean
-    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception {
-        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
-
-        asyncItemWriter.setDelegate(customerItemWriter());
-        asyncItemWriter.afterPropertiesSet();
-
-        return asyncItemWriter;
-    }
-
-    @Bean
-    public AsyncItemProcessor asyncItemProcessor() throws Exception {
-
-        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
-
-        asyncItemProcessor.setDelegate(itemProcessor());
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-        asyncItemProcessor.afterPropertiesSet();
-
-        return asyncItemProcessor;
-    }
-
-    @Bean
     public JdbcPagingItemReader<Customer> pagingItemReader() {
         JdbcPagingItemReader<Customer> reader = new JdbcPagingItemReader<>();
 
@@ -111,13 +91,12 @@ public class OreillyBatchConfig {
         reader.setPageSize(100);
         reader.setRowMapper(new CustomerRowMapper());
 
+        Map<String, Order> sortKeys = new HashMap<>(1);
+        sortKeys.put("customer_id", Order.ASCENDING);
+
         PostgresPagingQueryProvider queryProvider = new PostgresPagingQueryProvider();
         queryProvider.setSelectClause("customer_id,first_name,last_name,email,gender,contact,country,dob");
         queryProvider.setFromClause("from erp_v1.customers_info");
-
-        Map<String, Order> sortKeys = new HashMap<>(1);
-
-        sortKeys.put("customer_id", Order.ASCENDING);
         queryProvider.setSortKeys(sortKeys);
 
         reader.setQueryProvider(queryProvider);
@@ -149,6 +128,7 @@ public class OreillyBatchConfig {
 
 
     @Bean
+    @StepScope
     public JdbcBatchItemWriter<Customer> customerItemWriter() {
 
         JdbcBatchItemWriter<Customer> writer = new JdbcBatchItemWriter<>();
@@ -160,6 +140,28 @@ public class OreillyBatchConfig {
         writer.afterPropertiesSet();
 
         return writer;
+    }
+
+    @Bean
+    public AsyncItemWriter<Customer> asyncItemWriter() throws Exception {
+        AsyncItemWriter<Customer> asyncItemWriter = new AsyncItemWriter<>();
+
+        asyncItemWriter.setDelegate(customerItemWriter());
+        asyncItemWriter.afterPropertiesSet();
+
+        return asyncItemWriter;
+    }
+
+    @Bean
+    public AsyncItemProcessor asyncItemProcessor() throws Exception {
+
+        AsyncItemProcessor<Customer, Customer> asyncItemProcessor = new AsyncItemProcessor<>();
+
+        asyncItemProcessor.setDelegate(itemProcessor());
+        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        asyncItemProcessor.afterPropertiesSet();
+
+        return asyncItemProcessor;
     }
 
 }

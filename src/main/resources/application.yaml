@@ -23,7 +23,17 @@ spring:
           auto: update
     show-sql: true
   batch:
+    commit:
+      chunk: 1000
     job:
       enabled: false
     jdbc:
       initialize-schema: always
+
+thread:
+  maxPool:
+    size: 10
+  corePool:
+    size: 5
+  queuePool:
+    size:  5
